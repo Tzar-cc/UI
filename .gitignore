@@ -1,0 +1,6 @@
+dist/
+.sourcemap.json
+sourcemap.json
+*.rbxl
+*.rbxlx
+src/

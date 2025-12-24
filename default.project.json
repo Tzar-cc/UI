@@ -1,0 +1,11 @@
+{
+  "name": "TzarUI",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "TzarUI": {
+        "$path": "src"
+      }
+    }
+  }
+}
