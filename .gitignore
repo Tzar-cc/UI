@@ -3,4 +3,4 @@ dist/
 sourcemap.json
 *.rbxl
 *.rbxlx
-src/
+# src/

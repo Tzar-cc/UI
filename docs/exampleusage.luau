@@ -1,123 +1,324 @@
 --[[
-    Tzar UI Library - Example Usage
-    This script demonstrates the features of the Tzar UI Library.
+    Tzar UI Library - Полный пример использования
+    Демонстрирует все возможности библиотеки
 ]]
 
 local Tzar = require("./src")
 
--- 1. Create a Window
+--[[ ============================================
+    1. СОЗДАНИЕ ОКНА
+============================================ ]]
+
 local Window = Tzar.new({
-	Title = "Tzar UI Example",
-	Size = UDim2.fromOffset(550, 350),
-	Resizable = true,
-	Draggable = true,
-	MinimizeKey = Enum.KeyCode.RightControl,
+	Title = "Tzar UI Demo",
+	MinimizeKey = Enum.KeyCode.RightControl, -- Клавиша сворачивания
 })
 
--- 2. Create Tabs
+--[[ ============================================
+    2. СОЗДАНИЕ ВКЛАДОК
+============================================ ]]
+
 local MainTab = Window:AddTab({
 	Name = "Main",
-	Icon = "home", -- lucide-home
+	Icon = "home", -- Lucide иконка
 })
 
 local VisualsTab = Window:AddTab({
 	Name = "Visuals",
-	Icon = "geist:eye", -- geist-eye
+	Icon = "eye",
 })
 
--- 3. Add Components to Main Tab
-
--- Section
-local MainSection = MainTab:AddSection({
-	Name = "General Interaction",
-	Collapsed = false,
+local MiscTab = Window:AddTab({
+	Name = "Misc",
+	Icon = "settings",
 })
 
--- Paragraph
-MainSection:AddParagraph({
-	Title = "Welcome",
-	Description = "This example demonstrates Tzar UI's Config System directly.",
+--[[ ============================================
+    3. MAIN TAB - Основные функции
+============================================ ]]
+
+-- Секция: Информация
+local InfoSection = MainTab:AddSection({ Name = "Information" })
+
+InfoSection:AddParagraph({
+	Title = "Welcome to Tzar UI",
+	Description = "This example demonstrates all available components and the Config system with Flags.",
 })
 
--- Toggle with Flag
-MainSection:AddToggle({
+-- Секция: Фарминг
+local FarmSection = MainTab:AddSection({ Name = "Farming" })
+
+-- Toggle с Flag (автосохранение)
+local autoFarmToggle = FarmSection:AddToggle({
 	Title = "Auto Farm",
-	Flag = "AutoFarm", -- Access via Tzar.Flags["AutoFarm"]
-	Description = "Enables automatic farming functionality.",
+	Flag = "AutoFarm", --> Доступ: Tzar.Flags["AutoFarm"]
+	Description = "Enables automatic resource farming",
 	Default = false,
 	Callback = function(state)
-		print("AutoFarm is now:", state)
+		print("[AutoFarm]", state and "Enabled" or "Disabled")
 	end,
 })
 
--- Slider with Flag
-MainSection:AddSlider({
-	Title = "WalkSpeed",
-	Flag = "WalkSpeed",
-	Min = 16,
-	Max = 100,
-	Default = 16,
-	Increment = 1,
-	Suffix = " studs/s",
+-- Slider с Flag
+local speedSlider = FarmSection:AddSlider({
+	Title = "Farm Speed",
+	Flag = "FarmSpeed",
+	Description = "Speed multiplier for farming",
+	Min = 1,
+	Max = 10,
+	Default = 5,
+	Increment = 0.5,
+	Suffix = "x",
 	Callback = function(value)
-		-- Example: Directly update character
-		-- pcall(function() game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value end)
-		print("WalkSpeed:", value)
+		print("[FarmSpeed]", value)
 	end,
 })
 
--- Dropdown with Flag
-MainSection:AddDropdown({
-	Title = "Select Team",
-	Flag = "TeamSelector",
-	Options = { "Red", "Blue", "Green", "Yellow" },
-	Default = "Red",
+-- Dropdown с Flag
+local targetDropdown = FarmSection:AddDropdown({
+	Title = "Target Type",
+	Flag = "FarmTarget",
+	Options = { "All", "Enemies", "Resources", "NPCs" },
+	Default = "All",
 	Multi = false,
-	Callback = function(selection)
-		print("Selected Team:", selection)
+	Callback = function(selected)
+		print("[FarmTarget]", selected)
 	end,
 })
 
--- 4. Using Flags Globally
--- Buttons allow us to trigger actions that might need flag values
-MainSection:AddButton({
-	Name = "Print Config Values",
+-- Группа кнопок
+local actionGroup = FarmSection:AddButtonGroup()
+
+actionGroup:AddButton({
+	Name = "Start Farm",
 	Variant = "Primary",
 	Callback = function()
-		-- We can access the values directly from the Tzar.Flags table!
-		local farm = Tzar.Flags["AutoFarm"]:GetValue()
-		local speed = Tzar.Flags["WalkSpeed"]:GetValue()
-
 		Window:Notify({
-			Title = "Current Config",
-			Message = string.format("AutoFarm: %s | Speed: %d", tostring(farm), speed),
-			Icon = "info",
+			Title = "Farm Started",
+			Message = "Auto farming has been started!",
+			Duration = 3,
 		})
 	end,
 })
 
--- 5. Visuals Tab Components
-local ColorsSection = VisualsTab:AddSection({ Name = "Theme" })
-
-ColorsSection:AddColorPicker({
-	Title = "ESP Color",
-	Flag = "ESPColor",
-	Default = Color3.fromRGB(0, 255, 128),
-	Callback = function(color)
-		print("ESP Color:", color)
+actionGroup:AddButton({
+	Name = "Stop Farm",
+	Variant = "Destroy",
+	Callback = function()
+		Window:Notify({
+			Title = "Farm Stopped",
+			Message = "Auto farming has been stopped.",
+			Duration = 3,
+		})
 	end,
 })
 
--- 6. Settings Tab is automatically created!
+--[[ ============================================
+    4. VISUALS TAB - Визуальные настройки
+============================================ ]]
 
--- 5. Select the first tab
-Window:SelectTab(1)
+local ESPSection = VisualsTab:AddSection({ Name = "ESP Settings" })
 
--- 6. Notify startup
-Window:Notify({
-	Title = "Tzar Loaded",
-	Message = "The interface has been successfully loaded.",
-	Duration = 5,
+ESPSection:AddToggle({
+	Title = "Player ESP",
+	Flag = "PlayerESP",
+	Description = "Show ESP boxes around players",
+	Default = false,
+	Callback = function(state)
+		print("[PlayerESP]", state)
+	end,
 })
+
+-- ColorPicker с Flag
+local espColorPicker = ESPSection:AddColorPicker({
+	Title = "ESP Color",
+	Flag = "ESPColor",
+	Default = Color3.fromRGB(255, 0, 128),
+	Callback = function(color)
+		print("[ESPColor]", color)
+	end,
+})
+
+-- Multi-select Dropdown
+ESPSection:AddDropdown({
+	Title = "ESP Elements",
+	Flag = "ESPElements",
+	Options = { "Box", "Name", "Health", "Distance", "Weapon" },
+	Default = { "Box", "Name" },
+	Multi = true,
+	Callback = function(selected)
+		print("[ESPElements]", table.concat(selected, ", "))
+	end,
+})
+
+ESPSection:AddSlider({
+	Title = "Max Distance",
+	Flag = "ESPMaxDistance",
+	Min = 100,
+	Max = 2000,
+	Default = 500,
+	Increment = 50,
+	Suffix = " studs",
+	Callback = function(value)
+		print("[ESPMaxDistance]", value)
+	end,
+})
+
+--[[ ============================================
+    5. MISC TAB - Разное
+============================================ ]]
+
+local CharSection = MiscTab:AddSection({ Name = "Character" })
+
+CharSection:AddSlider({
+	Title = "Walk Speed",
+	Flag = "WalkSpeed",
+	Min = 16,
+	Max = 200,
+	Default = 16,
+	Suffix = " studs/s",
+	Callback = function(value)
+		pcall(function()
+			game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+		end)
+	end,
+})
+
+CharSection:AddSlider({
+	Title = "Jump Power",
+	Flag = "JumpPower",
+	Min = 50,
+	Max = 200,
+	Default = 50,
+	Callback = function(value)
+		pcall(function()
+			game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+		end)
+	end,
+})
+
+-- Keybind с Flag
+CharSection:AddKeybind({
+	Title = "Fly Toggle Key",
+	Flag = "FlyKey",
+	Default = Enum.KeyCode.F,
+	Callback = function(key)
+		print("[FlyKey] Set to:", key.Name)
+	end,
+})
+
+-- TextBox с Flag
+local UtilSection = MiscTab:AddSection({ Name = "Utilities" })
+
+UtilSection:AddTextBox({
+	Title = "Target Player",
+	Flag = "TargetPlayer",
+	Placeholder = "Enter player name...",
+	Default = "",
+	ClearOnFocus = false,
+	Callback = function(text)
+		print("[TargetPlayer]", text)
+	end,
+})
+
+UtilSection:AddButton({
+	Name = "Teleport to Target",
+	Variant = "Primary",
+	Callback = function()
+		local targetName = Tzar.Flags["TargetPlayer"]:GetValue()
+		if targetName and targetName ~= "" then
+			Window:Notify({
+				Title = "Teleporting",
+				Message = "Teleporting to " .. targetName .. "...",
+				Duration = 3,
+			})
+		else
+			Window:Notify({
+				Title = "Error",
+				Message = "Please enter a player name first!",
+				Duration = 3,
+			})
+		end
+	end,
+})
+
+--[[ ============================================
+    6. ИСПОЛЬЗОВАНИЕ FLAGS
+============================================ ]]
+
+-- Кнопка для демонстрации доступа к Flags
+UtilSection:AddButton({
+	Name = "Print All Config Values",
+	Variant = "Secondary",
+	Callback = function()
+		print("\n=== Current Config Values ===")
+
+		-- Доступ к значениям через Tzar.Flags
+		print("AutoFarm:", Tzar.Flags["AutoFarm"]:GetValue())
+		print("FarmSpeed:", Tzar.Flags["FarmSpeed"]:GetValue())
+		print("FarmTarget:", Tzar.Flags["FarmTarget"]:GetValue())
+		print("PlayerESP:", Tzar.Flags["PlayerESP"]:GetValue())
+		print("ESPColor:", Tzar.Flags["ESPColor"]:GetValue())
+		print("WalkSpeed:", Tzar.Flags["WalkSpeed"]:GetValue())
+		print("FlyKey:", Tzar.Flags["FlyKey"]:GetValue())
+
+		print("==============================\n")
+
+		Window:Notify({
+			Title = "Config Printed",
+			Message = "Check console for all config values",
+			Duration = 3,
+		})
+	end,
+})
+
+-- Программное изменение значений
+UtilSection:AddButton({
+	Name = "Set Random Values",
+	Callback = function()
+		-- Программное изменение через SetValue
+		Tzar.Flags["FarmSpeed"]:SetValue(math.random(1, 10))
+		Tzar.Flags["WalkSpeed"]:SetValue(math.random(16, 100))
+		Tzar.Flags["ESPColor"]:SetValue(Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255)))
+
+		Window:Notify({
+			Title = "Values Updated",
+			Message = "Random values have been set!",
+			Duration = 3,
+		})
+	end,
+})
+
+--[[ ============================================
+    7. УВЕДОМЛЕНИЕ О ЗАГРУЗКЕ
+============================================ ]]
+
+Window:Notify({
+	Title = "Tzar UI Loaded",
+	Message = "All components initialized successfully!",
+	Duration = 5,
+	Action = "View Config",
+	ActionCallback = function()
+		-- Переключение на Settings tab (автоматически создан)
+		Window:SelectTab(#Window._tabs) -- Last tab = Settings
+	end,
+})
+
+--[[ ============================================
+    АВТОСОХРАНЕНИЕ И ПРОФИЛИ
+    
+    Вкладка Settings создаётся автоматически!
+    Там доступно:
+    - Auto Save (вкл/выкл)
+    - Auto Load (вкл/выкл)  
+    - Выбор профиля
+    - Создание нового профиля
+    - Кнопки Save/Load
+    - Удаление профиля
+    
+    Все элементы с Flag автоматически:
+    - Сохраняются при изменении (если AutoSave = true)
+    - Загружаются при старте (если AutoLoad = true)
+============================================ ]]
 
 return Window

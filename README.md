@@ -1,193 +1,134 @@
 # Tzar UI Library
 
-A modern, fluent UI library for Roblox with integrated configuration system and
-support for multiple icon sets.
+<div align="center">
 
-## Getting Started
+![Tzar UI](https://img.shields.io/badge/Tzar-UI%20Library-green?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)
+
+**Современная UI библиотека для Roblox с системой конфигов и автосохранением**
+
+[Документация](./docs/README.md) • [Примеры](./docs/exampleusage.luau)
+
+</div>
+
+---
+
+## ✨ Особенности
+
+- 🎨 **Современный дизайн** — Fluent-стиль интерфейс
+- 💾 **Система конфигов** — AutoSave, AutoLoad, профили
+- 🏷️ **Flags** — Глобальный доступ к элементам через `Tzar.Flags`
+- 🔍 **Command Menu** — Быстрый поиск элементов (Ctrl+K)
+- 📦 **Иконки** — Lucide, Geist, Craft и другие
+- 📱 **Мини-бар** — Сворачивание в компактную панель
+- 🔔 **Уведомления** — Система нотификаций
+
+---
+
+## 🚀 Быстрый старт
 
 ```lua
 local Tzar = require(path.to.Tzar)
-```
 
-## Window
-
-Create a new window instance. The window includes a built-in "Settings" tab for
-configuration management.
-
-```lua
+-- Создание окна
 local Window = Tzar.new({
-    Title = "My Application",
-    Size = UDim2.fromOffset(550, 350),
-    Resizable = true,
-    Draggable = true,
-    MinimizeKey = Enum.KeyCode.RightControl, -- Key to toggle UI visibility
+    Title = "My Script",
+    MinimizeKey = Enum.KeyCode.RightControl,
 })
-```
 
-## Icons
-
-Tzar supports multiple icon sets via the
-[Icons](https://github.com/Footagesus/Icons) library. You can use icons by name,
-optionally with a set prefix (default: `lucide`).
-
-Supported sets: `lucide` (default), `geist`, `craft`, `solar`, `sf`.
-
-```lua
--- Use default Lucide icon
-Window:AddTab({ Name = "Home", Icon = "home" })
-
--- Use specific icon set
-Window:AddTab({ Name = "Clean", Icon = "geist:box" })
-
--- Use Roblox Asset ID (legacy)
-Window:AddTab({ Name = "Custom", Icon = "rbxassetid://..." })
-```
-
-## Configuration System
-
-Tzar includes a powerful configuration system with:
-
-- **Global Registry**: Access all elements via `Tzar.Flags`
-- **Profiles**: Built-in profile manager in the Settings tab
-- **Auto-save**: Configs are saved to the exploit's workspace folder
-
-### Registration using `Flag`
-
-Elements can be registered with a unique ID using the `Flag` option. If not
-provided, one is generated from the Tab/Section/Title names.
-
-```lua
-Section:AddToggle({
-    Title = "Auto Farm",
-    Flag = "AutoFarmEnabled", -- Access via Tzar.Flags["AutoFarmEnabled"]
-    Callback = function(v) end
-})
-```
-
-### Accessing Flags
-
-Access element values globally from anywhere in your script:
-
-```lua
--- Get value
-local enabled = Tzar.Flags["AutoFarmEnabled"]:GetValue()
-
--- Set value (updates UI too)
-Tzar.Flags["AutoFarmEnabled"]:SetValue(true)
-
--- Listen for changes
-Tzar.Flags["AutoFarmEnabled"].OnToggle:Connect(function(val)
-    print("Changed:", val)
-end)
-```
-
-## Components
-
-Components are added to **Sections** within **Tabs**.
-
-### Tab
-
-```lua
+-- Вкладка с иконкой
 local MainTab = Window:AddTab({
     Name = "Main",
     Icon = "home",
 })
-```
 
-### Section
+-- Секция
+local Section = MainTab:AddSection({ Name = "Features" })
 
-```lua
-local Section = MainTab:AddSection({
-    Name = "General",
-    Collapsed = false,
-})
-```
-
-### Toggle
-
-```lua
+-- Toggle с автосохранением
 Section:AddToggle({
-    Title = "Enabled",
-    Flag = "Toggle1",
-    Description = "Optional description",
+    Title = "Auto Farm",
+    Flag = "AutoFarm",
     Default = false,
-    Callback = function(state) end,
+    Callback = function(state)
+        print("AutoFarm:", state)
+    end,
 })
+
+-- Доступ к значению из любого места
+print(Tzar.Flags["AutoFarm"]:GetValue())
 ```
 
-### Slider
+---
+
+## 📦 Компоненты
+
+| Компонент       | Описание                                          |
+| --------------- | ------------------------------------------------- |
+| **Toggle**      | Переключатель с описанием                         |
+| **Slider**      | Ползунок с min/max/step                           |
+| **Dropdown**    | Выпадающий список (одиночный/множественный выбор) |
+| **Keybind**     | Привязка клавиш                                   |
+| **TextBox**     | Текстовое поле                                    |
+| **ColorPicker** | Выбор цвета HSV                                   |
+| **Button**      | Кнопка с вариантами стилей                        |
+| **ButtonGroup** | Группа кнопок                                     |
+| **Paragraph**   | Текстовый блок                                    |
+
+---
+
+## ⚙️ Система конфигов
 
 ```lua
+-- Все элементы с Flag автоматически сохраняются
 Section:AddSlider({
     Title = "Speed",
-    Flag = "WalkSpeed",
-    Min = 0,
+    Flag = "WalkSpeed",  -- ← Уникальный ID
+    Min = 16,
     Max = 100,
-    Default = 50,
-    Increment = 1,
-    Suffix = "%",
-    Callback = function(value) end,
+    Default = 16,
 })
+
+-- Глобальный доступ
+Tzar.Flags["WalkSpeed"]:GetValue()
+Tzar.Flags["WalkSpeed"]:SetValue(50)
+
+-- Вкладка Settings создаётся автоматически с:
+-- • Переключателями AutoSave / AutoLoad
+-- • Выбором профиля
+-- • Кнопками Save / Load / Delete
 ```
 
-### Dropdown
+---
 
-Supports single and multi-selection.
+## 🎨 Иконки
 
 ```lua
-Section:AddDropdown({
-    Title = "Choose Option",
-    Flag = "Selector",
-    Options = { "A", "B", "C" },
-    Default = "A", -- Or {"A", "B"} if Multi = true
-    Multi = false,
-    Callback = function(selection) end,
-})
+Icon = "home"           -- Lucide (по умолчанию)
+Icon = "geist:eye"      -- Geist
+Icon = "lucide:star"    -- Явное указание
 ```
 
-### Color Picker
+Поддерживаемые наборы: `lucide`, `geist`, `craft`, `solar`, `sf`
 
-```lua
-Section:AddColorPicker({
-    Title = "Accent Color",
-    Flag = "AccentColor",
-    Default = Color3.fromRGB(255, 0, 0),
-    Callback = function(color) end,
-})
-```
+---
 
-### Keybind
+## 📖 Документация
 
-```lua
-Section:AddKeybind({
-    Title = "Menu Key",
-    Flag = "MenuBind",
-    Default = Enum.KeyCode.M,
-    Callback = function() end,
-})
-```
+Полная документация доступна в [`docs/README.md`](./docs/README.md)
 
-### TextBox
+---
 
-```lua
-Section:AddTextBox({
-    Title = "Input",
-    Flag = "Box1",
-    Placeholder = "Type here...",
-    ClearOnFocus = true,
-    Callback = function(text) end,
-})
-```
+## 📄 Лицензия
 
-## Notifications
+Copyright © 2025 [tzar.cc](https://tzar.cc)
 
-Send ephemeral notifications to the user.
+Проприетарная лицензия:
 
-```lua
-Window:Notify({
-    Title = "Notification",
-    Message = "Operation successful!",
-    Duration = 5,
-    Icon = "check",
-})
-```
+- ✅ Использование разрешено
+- ✅ Упоминание автора обязательно
+- ❌ Модификация запрещена
+- ❌ Распространение кода запрещено
+
+Подробности в файле [LICENSE](./LICENSE)
