@@ -11,6 +11,7 @@ local Animation = require("../../Core/Animation")
 local Constants = require("../../Core/Constants")
 local Theme = require("../../Core/Theme")
 local Types = require("../../Core/Types")
+local Cleanup = require("../../Core/Cleanup")
 
 local Component = {}
 Component.__index = Component
@@ -21,6 +22,7 @@ function Component.new(props)
 	self.Props = props or {}
 	self.Instance = nil
 	self._connections = {}
+	self._cleanup = Cleanup.new()
 
 	-- Register with Config system if Flag or Name is present
 	local flagId = props.Flag or props.Name
@@ -55,6 +57,7 @@ function Component:Destroy()
 		conn:Disconnect()
 	end
 	self._connections = {}
+	self._cleanup:Cleanup()
 
 	-- Unregister from config
 	if self._flagId then
@@ -81,6 +84,10 @@ function Component:AddHoverEffect(instance: GuiObject, hoverColor: Color3, norma
 			Animation.Color(instance, normalColor)
 		end)
 	)
+end
+
+function Component:_track(task)
+	return self._cleanup:Track(task)
 end
 
 return Component

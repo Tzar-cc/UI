@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local Utils = require("../../Core/Utils")
 local Signal = require("../../Core/Signal")
 local Assets = require("../../Core/Assets")
+local Cleanup = require("../../Core/Cleanup")
 
 local TabButton = {}
 TabButton.__index = TabButton
@@ -37,6 +38,7 @@ function TabButton.new(options)
 
 	self._active = false
 	self._iconName = options.Icon or ""
+	self._cleanup = Cleanup.new()
 
 	-- Main button
 	self.Instance = Utils.create("TextButton", {
@@ -90,26 +92,26 @@ function TabButton.new(options)
 	self.OnClick = Signal.new()
 
 	-- Click handler
-	self.Instance.MouseButton1Click:Connect(function()
+	self._cleanup:Track(self.Instance.MouseButton1Click:Connect(function()
 		self.OnClick:Fire()
-	end)
+	end))
 
 	-- Hover animations (only when not active)
-	self.Instance.MouseEnter:Connect(function()
+	self._cleanup:Track(self.Instance.MouseEnter:Connect(function()
 		if not self._active then
 			TweenService:Create(self.Instance, TWEEN_FAST, {
 				BackgroundColor3 = COLOR_HOVER,
 			}):Play()
 		end
-	end)
+	end))
 
-	self.Instance.MouseLeave:Connect(function()
+	self._cleanup:Track(self.Instance.MouseLeave:Connect(function()
 		if not self._active then
 			TweenService:Create(self.Instance, TWEEN_FAST, {
 				BackgroundColor3 = COLOR_DEFAULT,
 			}):Play()
 		end
-	end)
+	end))
 
 	return self
 end
@@ -153,6 +155,7 @@ end
 
 function TabButton:Destroy()
 	self.OnClick:Destroy()
+	self._cleanup:Cleanup()
 	self.Instance:Destroy()
 end
 

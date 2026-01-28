@@ -4,7 +4,6 @@
 ]]
 
 local HttpService = game:GetService("HttpService")
-local Signal = require("./Signal")
 
 local Config = {}
 Config.Flags = {} -- Global registry (Tzar.Flags)
@@ -14,6 +13,7 @@ Config.Folder = "TzarConfigs"
 Config.Extension = ".json"
 Config.AutoSave = true -- Autosave configs on value change
 Config.AutoLoad = true -- Autoload selected config on startup
+Config._connections = {}
 
 -- Safe file functions (exploit compatibility)
 local writefile = writefile or function() end
@@ -214,18 +214,27 @@ function Config:Register(id, element)
 		return
 	end
 	self.Flags[id] = element
+	if self._connections[id] then
+		self._connections[id]:Disconnect()
+		self._connections[id] = nil
+	end
 
 	-- Setup autosave if enabled and element has Changed signal
 	if self.AutoSave and element.Changed then
-		element.Changed:Connect(function()
+		local conn = element.Changed:Connect(function()
 			self:Save()
 		end)
+		self._connections[id] = conn
 	end
 end
 
 function Config:Unregister(id)
 	if not id then
 		return
+	end
+	if self._connections[id] then
+		self._connections[id]:Disconnect()
+		self._connections[id] = nil
 	end
 	self.Flags[id] = nil
 end

@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Utils = require("../Core/Utils")
 local Signal = require("../Core/Signal")
+local Cleanup = require("../Core/Cleanup")
 
 local CommandMenu = {}
 CommandMenu.__index = CommandMenu
@@ -29,6 +30,8 @@ function CommandMenu.new(mainFrame)
 	self._results = {}
 	self._selectedIndex = 1
 	self._visible = false
+	self._cleanup = Cleanup.new()
+	self._resultsCleanup = Cleanup.new()
 
 	local holder = Utils.create("Folder", {
 		Name = "CommandMenuHolder",
@@ -147,12 +150,12 @@ function CommandMenu.new(mainFrame)
 	self.OnSelect = Signal.new()
 
 	-- Search input changes
-	self._searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+	self._cleanup:Track(self._searchInput:GetPropertyChangedSignal("Text"):Connect(function()
 		self:_updateResults()
-	end)
+	end))
 
 	-- Keyboard navigation
-	UserInputService.InputBegan:Connect(function(input, processed)
+	self._cleanup:Track(UserInputService.InputBegan:Connect(function(input, processed)
 		if not self._visible then
 			return
 		end
@@ -166,10 +169,10 @@ function CommandMenu.new(mainFrame)
 		elseif input.KeyCode == Enum.KeyCode.Return then
 			self:_confirmSelection()
 		end
-	end)
+	end))
 
 	-- Click overlay to close
-	self._overlay.InputBegan:Connect(function(input)
+	self._cleanup:Track(self._overlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			local pos = input.Position
 			local menuPos = self._menu.AbsolutePosition
@@ -184,7 +187,7 @@ function CommandMenu.new(mainFrame)
 				self:Hide()
 			end
 		end
-	end)
+	end))
 
 	return self
 end
@@ -201,6 +204,8 @@ end
 
 -- Update search results
 function CommandMenu:_updateResults()
+	self._resultsCleanup:Cleanup()
+
 	-- Clear existing results
 	for _, child in ipairs(self._resultsContainer:GetChildren()) do
 		if child:IsA("TextButton") then
@@ -291,15 +296,15 @@ function CommandMenu:_updateResults()
 		})
 
 		-- Hover
-		resultBtn.MouseEnter:Connect(function()
+		self._resultsCleanup:Track(resultBtn.MouseEnter:Connect(function()
 			self:_selectIndex(i)
-		end)
+		end))
 
 		-- Click
-		resultBtn.MouseButton1Click:Connect(function()
+		self._resultsCleanup:Track(resultBtn.MouseButton1Click:Connect(function()
 			self:_selectIndex(i)
 			self:_confirmSelection()
-		end)
+		end))
 
 		table.insert(self._results, { Button = resultBtn, Entry = entry })
 	end
@@ -440,6 +445,8 @@ end
 
 function CommandMenu:Destroy()
 	self.OnSelect:Destroy()
+	self._resultsCleanup:Cleanup()
+	self._cleanup:Cleanup()
 	self._overlay:Destroy()
 end
 

@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Utils = require("../Core/Utils")
 local Signal = require("../Core/Signal")
 local Config = require("../Core/Config")
+local Cleanup = require("../Core/Cleanup")
 local TabButton = require("./Elements/TabButton")
 local Tooltip = require("./Overlays/Tooltip")
 local Notification = require("./Overlays/Notification")
@@ -24,48 +25,65 @@ local TWEEN_NORMAL = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirec
 local TWEEN_SMOOTH = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 -- Helper: animate button hover
-local function setupButtonAnimations(button: TextButton, normalTransparency: number, hoverColor: Color3?)
+local function setupButtonAnimations(
+	button: TextButton,
+	normalTransparency: number,
+	hoverColor: Color3?,
+	track: ((RBXScriptConnection) -> ())?
+)
 	local defaultBg = button.BackgroundColor3
 	local hoverBg = hoverColor or defaultBg
 
 	button.AutoButtonColor = false
 
-	button.MouseEnter:Connect(function()
+	local function add(conn)
+		if track then
+			track(conn)
+		end
+	end
+
+	add(button.MouseEnter:Connect(function()
 		TweenService:Create(button, TWEEN_FAST, {
 			BackgroundTransparency = 0,
 			BackgroundColor3 = hoverBg,
 		}):Play()
-	end)
+	end))
 
-	button.MouseLeave:Connect(function()
+	add(button.MouseLeave:Connect(function()
 		TweenService:Create(button, TWEEN_FAST, {
 			BackgroundTransparency = normalTransparency,
 			BackgroundColor3 = defaultBg,
 		}):Play()
-	end)
+	end))
 
-	button.MouseButton1Down:Connect(function()
+	add(button.MouseButton1Down:Connect(function()
 		TweenService:Create(button, TWEEN_FAST, {
 			BackgroundTransparency = 0,
 			BackgroundColor3 = hoverBg:Lerp(Color3.new(0, 0, 0), 0.2),
 		}):Play()
-	end)
+	end))
 
-	button.MouseButton1Up:Connect(function()
+	add(button.MouseButton1Up:Connect(function()
 		TweenService:Create(button, TWEEN_FAST, {
 			BackgroundTransparency = 0,
 			BackgroundColor3 = hoverBg,
 		}):Play()
-	end)
+	end))
 end
 
 -- Helper: setup dragging
-local function setupDragging(dragHandle: GuiObject, targetFrame: GuiObject)
+local function setupDragging(dragHandle: GuiObject, targetFrame: GuiObject, track: ((RBXScriptConnection) -> ())?)
 	local dragging = false
 	local dragStart = Vector2.zero
 	local startPos = UDim2.new()
 
-	dragHandle.InputBegan:Connect(function(input)
+	local function add(conn)
+		if track then
+			track(conn)
+		end
+	end
+
+	add(dragHandle.InputBegan:Connect(function(input)
 		if
 			input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
@@ -74,18 +92,18 @@ local function setupDragging(dragHandle: GuiObject, targetFrame: GuiObject)
 			dragStart = Vector2.new(input.Position.X, input.Position.Y)
 			startPos = targetFrame.Position
 		end
-	end)
+	end))
 
-	dragHandle.InputEnded:Connect(function(input)
+	add(dragHandle.InputEnded:Connect(function(input)
 		if
 			input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
 		then
 			dragging = false
 		end
-	end)
+	end))
 
-	UserInputService.InputChanged:Connect(function(input)
+	add(UserInputService.InputChanged:Connect(function(input)
 		if
 			dragging
 			and (
@@ -97,12 +115,13 @@ local function setupDragging(dragHandle: GuiObject, targetFrame: GuiObject)
 			targetFrame.Position =
 				UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
-	end)
+	end))
 end
 
 function MainFrame.new(options)
 	local self = setmetatable({}, MainFrame)
 	options = options or {}
+	self._cleanup = Cleanup.new()
 
 	-- Tab management
 	self._tabs = {}
@@ -151,7 +170,9 @@ function MainFrame.new(options)
 	})
 
 	-- Setup dragging on topbar
-	setupDragging(self._topBar, self.Instance)
+	setupDragging(self._topBar, self.Instance, function(conn)
+		self._cleanup:Track(conn)
+	end)
 
 	-- Logo
 	self._logo = Utils.create("ImageLabel", {
@@ -221,7 +242,9 @@ function MainFrame.new(options)
 		Parent = self._searchBtn,
 	})
 
-	setupButtonAnimations(self._searchBtn, 1, Color3.fromRGB(26, 26, 26))
+	setupButtonAnimations(self._searchBtn, 1, Color3.fromRGB(26, 26, 26), function(conn)
+		self._cleanup:Track(conn)
+	end)
 
 	-- Minimize button
 	self._minimizeBtn = Utils.create("TextButton", {
@@ -271,8 +294,12 @@ function MainFrame.new(options)
 	})
 
 	-- Setup button animations
-	setupButtonAnimations(self._minimizeBtn, 1, Color3.fromRGB(26, 26, 26))
-	setupButtonAnimations(self._closeBtn, 1, Color3.fromRGB(180, 50, 50))
+	setupButtonAnimations(self._minimizeBtn, 1, Color3.fromRGB(26, 26, 26), function(conn)
+		self._cleanup:Track(conn)
+	end)
+	setupButtonAnimations(self._closeBtn, 1, Color3.fromRGB(180, 50, 50), function(conn)
+		self._cleanup:Track(conn)
+	end)
 
 	-- MainSection (TabContainer + Content)
 	self._mainSection = Utils.create("Frame", {
@@ -356,31 +383,31 @@ function MainFrame.new(options)
 	self.OnMinimize = Signal.new()
 
 	-- Search button click
-	self._searchBtn.MouseButton1Click:Connect(function()
+	self._cleanup:Track(self._searchBtn.MouseButton1Click:Connect(function()
 		self._commandMenu:Toggle()
-	end)
+	end))
 
 	-- Close: show confirmation dialog
-	self._closeBtn.MouseButton1Click:Connect(function()
+	self._cleanup:Track(self._closeBtn.MouseButton1Click:Connect(function()
 		self:_showCloseDialog()
-	end)
+	end))
 
 	-- Minimize: show mini-bar
-	self._minimizeBtn.MouseButton1Click:Connect(function()
+	self._cleanup:Track(self._minimizeBtn.MouseButton1Click:Connect(function()
 		self.OnMinimize:Fire()
 		self:Minimize()
-	end)
+	end))
 
 	-- Global keyboard listener for MinimizeKey (works even when minimized)
 	if self._minimizeKey then
-		UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		self._cleanup:Track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			if gameProcessed then
 				return
 			end
 			if input.KeyCode == self._minimizeKey then
 				self:Toggle()
 			end
-		end)
+		end))
 	end
 
 	-- Create Settings tab
@@ -407,7 +434,9 @@ function MainFrame:_createMiniBar()
 	Utils.applyStroke(self._miniBar, { Color = Color3.fromRGB(65, 65, 65) })
 
 	-- Make mini-bar draggable
-	setupDragging(self._miniBar, self._miniBar)
+	setupDragging(self._miniBar, self._miniBar, function(conn)
+		self._cleanup:Track(conn)
+	end)
 
 	-- Mini logo
 	Utils.create("ImageLabel", {
@@ -459,23 +488,23 @@ function MainFrame:_createMiniBar()
 	})
 
 	-- Restore button click
-	restoreBtn.MouseButton1Click:Connect(function()
+	self._cleanup:Track(restoreBtn.MouseButton1Click:Connect(function()
 		self:Restore()
-	end)
+	end))
 
 	-- Hover effect
-	restoreBtn.MouseEnter:Connect(function()
+	self._cleanup:Track(restoreBtn.MouseEnter:Connect(function()
 		TweenService:Create(restoreBtn, TWEEN_FAST, {
 			BackgroundColor3 = Color3.fromRGB(11, 180, 87),
 			BackgroundTransparency = 0,
 		}):Play()
-	end)
-	restoreBtn.MouseLeave:Connect(function()
+	end))
+	self._cleanup:Track(restoreBtn.MouseLeave:Connect(function()
 		TweenService:Create(restoreBtn, TWEEN_FAST, {
 			BackgroundColor3 = Color3.fromRGB(9, 156, 75),
 			BackgroundTransparency = 0.1,
 		}):Play()
-	end)
+	end))
 end
 
 -- Create close confirmation dialog
@@ -585,34 +614,34 @@ function MainFrame:_createCloseDialog()
 	Utils.applyCorner(confirmBtn, 8)
 
 	-- Cancel click
-	cancelBtn.MouseButton1Click:Connect(function()
+	self._cleanup:Track(cancelBtn.MouseButton1Click:Connect(function()
 		self:_hideCloseDialog()
-	end)
+	end))
 
 	-- Confirm click
-	confirmBtn.MouseButton1Click:Connect(function()
+	self._cleanup:Track(confirmBtn.MouseButton1Click:Connect(function()
 		self:_hideCloseDialog()
 		self.OnClose:Fire()
 		self:AnimateClose()
-	end)
+	end))
 
 	-- Button hover effects
-	cancelBtn.MouseEnter:Connect(function()
+	self._cleanup:Track(cancelBtn.MouseEnter:Connect(function()
 		TweenService:Create(cancelBtn, TWEEN_FAST, { BackgroundColor3 = Color3.fromRGB(45, 45, 45) }):Play()
-	end)
-	cancelBtn.MouseLeave:Connect(function()
+	end))
+	self._cleanup:Track(cancelBtn.MouseLeave:Connect(function()
 		TweenService:Create(cancelBtn, TWEEN_FAST, { BackgroundColor3 = Color3.fromRGB(35, 35, 35) }):Play()
-	end)
+	end))
 
-	confirmBtn.MouseEnter:Connect(function()
+	self._cleanup:Track(confirmBtn.MouseEnter:Connect(function()
 		TweenService:Create(confirmBtn, TWEEN_FAST, { BackgroundColor3 = Color3.fromRGB(200, 60, 60) }):Play()
-	end)
-	confirmBtn.MouseLeave:Connect(function()
+	end))
+	self._cleanup:Track(confirmBtn.MouseLeave:Connect(function()
 		TweenService:Create(confirmBtn, TWEEN_FAST, { BackgroundColor3 = Color3.fromRGB(180, 50, 50) }):Play()
-	end)
+	end))
 
 	-- Click overlay to cancel
-	self._dialogOverlay.InputBegan:Connect(function(input)
+	self._cleanup:Track(self._dialogOverlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			-- Check if click is outside dialog
 			local pos = input.Position
@@ -628,7 +657,7 @@ function MainFrame:_createCloseDialog()
 				self:_hideCloseDialog()
 			end
 		end
-	end)
+	end))
 end
 
 function MainFrame:_showCloseDialog()
@@ -828,6 +857,8 @@ function MainFrame:Destroy()
 	if self._commandMenu then
 		self._commandMenu:Destroy()
 	end
+	Tooltip:Destroy()
+	self._cleanup:Cleanup()
 	self.ScreenGui:Destroy()
 end
 

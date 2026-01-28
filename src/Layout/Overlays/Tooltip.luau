@@ -7,12 +7,15 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Utils = require("../../Core/Utils")
+local Cleanup = require("../../Core/Cleanup")
 
 local Tooltip = {}
 Tooltip._instance = nil
 Tooltip._currentTarget = nil
 Tooltip._showDelay = 0.5
 Tooltip._hideDelay = nil
+Tooltip._cleanup = Cleanup.new()
+Tooltip._elementConnections = {}
 
 -- Tween presets
 local TWEEN_FAST = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -52,11 +55,11 @@ function Tooltip:_init(screenGui)
 	})
 
 	-- Track mouse movement
-	UserInputService.InputChanged:Connect(function(input)
+	self._cleanup:Track(UserInputService.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement and self._instance.Visible then
 			self:_updatePosition(input.Position)
 		end
-	end)
+	end))
 end
 
 function Tooltip:_updatePosition(mousePos)
@@ -88,8 +91,14 @@ function Tooltip:Register(element: GuiObject, text: string)
 	end
 
 	local showThread = nil
+	if self._elementConnections[element] then
+		for _, conn in ipairs(self._elementConnections[element]) do
+			conn:Disconnect()
+		end
+	end
+	self._elementConnections[element] = {}
 
-	element.MouseEnter:Connect(function()
+	table.insert(self._elementConnections[element], element.MouseEnter:Connect(function()
 		if showThread then
 			task.cancel(showThread)
 		end
@@ -107,9 +116,9 @@ function Tooltip:Register(element: GuiObject, text: string)
 				BackgroundTransparency = 0,
 			}):Play()
 		end)
-	end)
+	end))
 
-	element.MouseLeave:Connect(function()
+	table.insert(self._elementConnections[element], element.MouseLeave:Connect(function()
 		if showThread then
 			task.cancel(showThread)
 			showThread = nil
@@ -127,7 +136,7 @@ function Tooltip:Register(element: GuiObject, text: string)
 				end
 			end)
 		end
-	end)
+	end))
 end
 
 -- Update tooltip text for an element
@@ -143,6 +152,22 @@ function Tooltip:Hide()
 		self._instance.Visible = false
 		self._currentTarget = nil
 	end
+end
+
+function Tooltip:Destroy()
+	for element, connections in pairs(self._elementConnections) do
+		for _, conn in ipairs(connections) do
+			conn:Disconnect()
+		end
+		self._elementConnections[element] = nil
+	end
+	self._cleanup:Cleanup()
+	if self._instance then
+		self._instance:Destroy()
+		self._instance = nil
+	end
+	self._currentTarget = nil
+	self._screenGui = nil
 end
 
 return Tooltip

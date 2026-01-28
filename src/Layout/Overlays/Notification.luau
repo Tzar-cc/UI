@@ -6,6 +6,7 @@
 local TweenService = game:GetService("TweenService")
 
 local Utils = require("../../Core/Utils")
+local Cleanup = require("../../Core/Cleanup")
 
 local Notification = {}
 Notification.__index = Notification
@@ -22,6 +23,10 @@ function Notification.new(options)
 	local self = setmetatable({}, Notification)
 
 	local duration = options.Duration or 5
+	self._cleanup = Cleanup.new()
+	self._dismissed = false
+	self._autoDismissThread = nil
+	self._activeTween = nil
 
 	-- Main container - Sonner dark style
 	self.Instance = Utils.create("Frame", {
@@ -114,24 +119,24 @@ function Notification.new(options)
 		Utils.applyCorner(actionBtn, 6)
 
 		-- Hover effect
-		actionBtn.MouseEnter:Connect(function()
+		self._cleanup:Track(actionBtn.MouseEnter:Connect(function()
 			TweenService:Create(actionBtn, TWEEN_FADE, {
 				BackgroundColor3 = Color3.fromRGB(230, 230, 230),
 			}):Play()
-		end)
+		end))
 
-		actionBtn.MouseLeave:Connect(function()
+		self._cleanup:Track(actionBtn.MouseLeave:Connect(function()
 			TweenService:Create(actionBtn, TWEEN_FADE, {
 				BackgroundColor3 = Color3.fromRGB(250, 250, 250),
 			}):Play()
-		end)
+		end))
 
-		actionBtn.MouseButton1Click:Connect(function()
+		self._cleanup:Track(actionBtn.MouseButton1Click:Connect(function()
 			if options.ActionCallback then
 				options.ActionCallback()
 			end
 			self:Dismiss()
-		end)
+		end))
 	else
 		-- Dismiss button (X) if no action
 		local closeBtn = Utils.create("TextButton", {
@@ -158,25 +163,24 @@ function Notification.new(options)
 			Parent = closeBtn,
 		})
 
-		closeBtn.MouseEnter:Connect(function()
+		self._cleanup:Track(closeBtn.MouseEnter:Connect(function()
 			TweenService:Create(closeBtn, TWEEN_FADE, { BackgroundTransparency = 0 }):Play()
 			TweenService:Create(closeBtn.Icon, TWEEN_FADE, { ImageColor3 = Color3.fromRGB(200, 200, 200) }):Play()
-		end)
+		end))
 
-		closeBtn.MouseLeave:Connect(function()
+		self._cleanup:Track(closeBtn.MouseLeave:Connect(function()
 			TweenService:Create(closeBtn, TWEEN_FADE, { BackgroundTransparency = 1 }):Play()
 			TweenService:Create(closeBtn.Icon, TWEEN_FADE, { ImageColor3 = Color3.fromRGB(120, 120, 120) }):Play()
-		end)
+		end))
 
-		closeBtn.MouseButton1Click:Connect(function()
+		self._cleanup:Track(closeBtn.MouseButton1Click:Connect(function()
 			self:Dismiss()
-		end)
+		end))
 	end
 
 	-- Auto-dismiss timer
-	self._dismissed = false
 	if duration > 0 then
-		task.delay(duration, function()
+		self._autoDismissThread = task.delay(duration, function()
 			if not self._dismissed then
 				self:Dismiss()
 			end
@@ -189,15 +193,23 @@ end
 function Notification:Show(targetY: number)
 	self.Instance.Position = UDim2.new(1, NOTIFICATION_WIDTH + 20, 0, targetY)
 
-	TweenService:Create(self.Instance, TWEEN_SLIDE, {
+	if self._activeTween then
+		self._activeTween:Cancel()
+	end
+	self._activeTween = TweenService:Create(self.Instance, TWEEN_SLIDE, {
 		Position = UDim2.new(1, -10, 0, targetY),
-	}):Play()
+	})
+	self._activeTween:Play()
 end
 
 function Notification:UpdatePosition(targetY: number)
-	TweenService:Create(self.Instance, TWEEN_SLIDE, {
+	if self._activeTween then
+		self._activeTween:Cancel()
+	end
+	self._activeTween = TweenService:Create(self.Instance, TWEEN_SLIDE, {
 		Position = UDim2.new(1, -10, 0, targetY),
-	}):Play()
+	})
+	self._activeTween:Play()
 end
 
 function Notification:Dismiss()
@@ -205,13 +217,23 @@ function Notification:Dismiss()
 		return
 	end
 	self._dismissed = true
+	if self._autoDismissThread then
+		task.cancel(self._autoDismissThread)
+		self._autoDismissThread = nil
+	end
+	if self._activeTween then
+		self._activeTween:Cancel()
+		self._activeTween = nil
+	end
 
 	local tween = TweenService:Create(self.Instance, TWEEN_SLIDE, {
 		Position = UDim2.new(1, NOTIFICATION_WIDTH + 20, 0, self.Instance.Position.Y.Offset),
 	})
+	self._activeTween = tween
 	tween:Play()
 	tween.Completed:Wait()
 
+	self._cleanup:Cleanup()
 	self.Instance:Destroy()
 end
 
